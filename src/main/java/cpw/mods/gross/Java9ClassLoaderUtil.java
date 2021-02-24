@@ -25,7 +25,16 @@ public class Java9ClassLoaderUtil {
                 Unsafe unsafe = (Unsafe) field.get(null);
 
                 // jdk.internal.loader.ClassLoaders.AppClassLoader.ucp
-                Field ucpField = classLoader.getClass().getDeclaredField("ucp");
+                Field ucpField = fieldOrNull(classLoader.getClass(), "ucp");
+                // Java 16: jdk.internal.loader.BuiltinClassLoader.ucp
+                if (ucpField == null && classLoader.getClass().getSuperclass() != null) {
+                    ucpField = fieldOrNull(classLoader.getClass().getSuperclass(), "ucp");
+                }
+
+                if (ucpField == null) {
+                    return null;
+                }
+
                 long ucpFieldOffset = unsafe.objectFieldOffset(ucpField);
                 Object ucpObject = unsafe.getObject(classLoader, ucpFieldOffset);
 
@@ -41,5 +50,13 @@ public class Java9ClassLoaderUtil {
             }
         }
         return null;
+    }
+
+    private static Field fieldOrNull(Class<?> klass, String name) {
+        try {
+            return klass.getDeclaredField(name);
+        } catch (NoSuchFieldException ex) {
+            return null;
+        }
     }
 }
